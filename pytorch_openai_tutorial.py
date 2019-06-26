@@ -17,7 +17,13 @@ import torchvision.transforms as T
 
 # Initial Setup
 
-env = gym.make('Breakout-ram-v0')
+env = gym.make('CartPole-v1')
+if hasattr(env, 'get_keys_to_action'):
+    keys_to_action = env.get_keys_to_action()
+    print(keys_to_action)
+if hasattr(env.unwrapped, 'get_keys_to_action'):
+    keys_to_action = env.unwrapped.get_keys_to_action()
+    print(keys_to_action)
 
 # set up matplotlib
 is_ipython = 'inline' in matplotlib.get_backend()
@@ -61,11 +67,11 @@ class DQN(nn.Module):
 
     def __init__(self, h, w, outputs):
         super(DQN, self).__init__()
-        self.conv1 = nn.Conv2d(3, 128, kernel_size=5, stride=2)
-        self.bn1 = nn.BatchNorm2d(128)
-        self.conv2 = nn.Conv2d(128, 64, kernel_size=5, stride=2)
-        self.bn2 = nn.BatchNorm2d(64)
-        self.conv3 = nn.Conv2d(64, 32, kernel_size=5, stride=2)
+        self.conv1 = nn.Conv2d(3, 16, kernel_size=5, stride=2)
+        self.bn1 = nn.BatchNorm2d(16)
+        self.conv2 = nn.Conv2d(16, 32, kernel_size=5, stride=2)
+        self.bn2 = nn.BatchNorm2d(32)
+        self.conv3 = nn.Conv2d(32, 32, kernel_size=5, stride=2)
         self.bn3 = nn.BatchNorm2d(32)
 
         # Number of Linear input connections depends on output of conv2d layers
@@ -148,7 +154,7 @@ def select_action(state):
     eps_threshold = EPS_END + (EPS_START - EPS_END) * \
         math.exp(-1. * steps_done / EPS_DECAY)
     steps_done += 1
-    if True:
+    if sample > eps_threshold:
         with torch.no_grad():
             # t.max(1) will return largest column value of each row.
             # second column on max result is index of where max element was
