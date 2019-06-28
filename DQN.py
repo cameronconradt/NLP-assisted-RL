@@ -14,21 +14,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 import torchvision.transforms as T
 
-
-# Initial Setup
-
-env = gym.make('JourneyEscape-v0')
-if hasattr(env, 'get_keys_to_action'):
-    keys_to_action = env.get_keys_to_action()
-    print(keys_to_action)
-if hasattr(env.unwrapped, 'get_keys_to_action'):
-    keys_to_action = env.unwrapped.get_keys_to_action()
-    print(keys_to_action)
-
-# set up matplotlib
-is_ipython = 'inline' in matplotlib.get_backend()
-if is_ipython:
-    from IPython import display
+env = gym.make('Boxing-v0')
 
 plt.ion()
 
@@ -60,18 +46,15 @@ class ReplayMemory(object):
     def __len__(self):
         return len(self.memory)
 
-# Setup Q Network
-
-
 class DQN(nn.Module):
 
     def __init__(self, h, w, outputs):
         super(DQN, self).__init__()
-        self.conv1 = nn.Conv2d(3, 16, kernel_size=5, stride=2)
-        self.bn1 = nn.BatchNorm2d(16)
-        self.conv2 = nn.Conv2d(16, 32, kernel_size=5, stride=2)
-        self.bn2 = nn.BatchNorm2d(32)
-        self.conv3 = nn.Conv2d(32, 32, kernel_size=5, stride=2)
+        self.conv1 = nn.Conv2d(3, 32, kernel_size=5, stride=2)
+        self.bn1 = nn.BatchNorm2d(32)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=5, stride=2)
+        self.bn2 = nn.BatchNorm2d(64)
+        self.conv3 = nn.Conv2d(64, 32, kernel_size=5, stride=2)
         self.bn3 = nn.BatchNorm2d(32)
 
         # Number of Linear input connections depends on output of conv2d layers
@@ -94,7 +77,7 @@ class DQN(nn.Module):
 # grab images from the screen
 
 resize = T.Compose([T.ToPILImage(),
-                    T.Resize(40, interpolation=Image.CUBIC),
+                    T.Resize(50, interpolation=Image.CUBIC),
                     T.ToTensor()])
 
 
@@ -102,6 +85,8 @@ def get_screen():
     # Returned screen requested by gym is 400x600x3, but is sometimes larger
     # such as 800x1200x3. Transpose it into torch order (CHW).
     screen = env.render(mode='rgb_array').transpose((2, 0, 1))
+    _, screen_height, screen_width = screen.shape
+    # screen = screen[:, :, int(screen_width*.5):int(screen_width)]
     # Convert to float, rescale, convert to torch tensor
     # (this doesn't require a copy)
     screen = np.ascontiguousarray(screen, dtype=np.float32) / 255
@@ -109,21 +94,13 @@ def get_screen():
     # Resize, and add a batch dimension (BCHW)
     return resize(screen).unsqueeze(0).to(device)
 
-
-env.reset()
-plt.figure()
-plt.imshow(get_screen().cpu().squeeze(0).permute(1, 2, 0).numpy(),
-           interpolation='none')
-plt.title('Example extracted screen')
-plt.show()
-
 # Hyperparameters and Utilities
 
-BATCH_SIZE = 64
+BATCH_SIZE = 128
 GAMMA = 0.999
 EPS_START = 0.9
 EPS_END = 0.05
-EPS_DECAY = 200
+EPS_DECAY = 500
 TARGET_UPDATE = 10
 
 # Get screen size so that we can initialize layers correctly based on shape
@@ -140,12 +117,10 @@ target_net = DQN(screen_height, screen_width, n_actions).to(device)
 target_net.load_state_dict(policy_net.state_dict())
 target_net.eval()
 
-optimizer = optim.RMSprop(policy_net.parameters())
+optimizer = optim.Adam(policy_net.parameters())
 memory = ReplayMemory(10000)
 
-
 steps_done = 0
-
 
 def select_action(state):
     global steps_done
@@ -162,28 +137,12 @@ def select_action(state):
     else:
         return torch.tensor([[random.randrange(n_actions)]], device=device, dtype=torch.long)
 
-
-episode_durations = []
-
-
-def plot_durations():
-    plt.figure(2)
-    plt.clf()
-    durations_t = torch.tensor(episode_durations, dtype=torch.float)
-    plt.title('Training...')
-    plt.xlabel('Episode')
-    plt.ylabel('Duration')
-    plt.plot(durations_t.numpy())
-    # Take 100 episode averages and plot them too
-    if len(durations_t) >= 100:
-        means = durations_t.unfold(0, 100, 1).mean(1).view(-1)
-        means = torch.cat((torch.zeros(99), means))
-        plt.plot(means.numpy())
-
-    plt.pause(0.001)  # pause a bit so that plots are updated
-    if is_ipython:
-        display.clear_output(wait=True)
-        display.display(plt.gcf())
+env.reset()
+plt.figure()
+plt.imshow(get_screen().cpu().squeeze(0).permute(1, 2, 0).numpy(),
+           interpolation='none')
+plt.title('Example extracted screen')
+plt.show()
 
 episode_total_rewards = []
 
@@ -196,15 +155,12 @@ def plot_rewards():
     plt.ylabel('Rewards')
     plt.plot(rewards_t.numpy())
     # Take 100 episode averages and plot them too
-    if len(episode_durations) >= 100:
+    if len(episode_total_rewards) >= 100:
         means = rewards_t.unfold(0, 100, 1).mean(1).view(-1)
         means = torch.cat((torch.zeros(99), means))
         plt.plot(means.numpy())
 
     plt.pause(0.001)  # pause a bit so that plots are updated
-    if is_ipython:
-        display.clear_output(wait=True)
-        display.display(plt.gcf())
 
 # Training Loop
 
@@ -253,15 +209,13 @@ def optimize_model():
         param.grad.data.clamp_(-1, 1)
     optimizer.step()
 
-#Training loop
-
 num_episodes = 10000
 for i_episode in range(num_episodes):
     # Initialize the environment and state
     env.reset()
     last_screen = get_screen()
     current_screen = get_screen()
-    state = current_screen - last_screen
+    state = current_screen
     local_rewards = 0
     for t in count():
         env.render()
@@ -276,7 +230,7 @@ for i_episode in range(num_episodes):
         last_screen = current_screen
         current_screen = get_screen()
         if not done:
-            next_state = current_screen - last_screen
+            next_state = current_screen
         else:
             next_state = None
 
@@ -289,8 +243,6 @@ for i_episode in range(num_episodes):
         optimize_model()
         if done:
             episode_total_rewards.append(local_rewards)
-            # episode_durations.append(t + 1)
-            # plot_durations()
             plot_rewards()
             local_rewards = 0
             break
