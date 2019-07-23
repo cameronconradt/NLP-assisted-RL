@@ -1,23 +1,22 @@
-import gym
-import math
 import random
-import numpy as np
-import matplotlib
-import matplotlib.pyplot as plt
 from collections import namedtuple
 from itertools import count
-from PIL import Image
 
+import gym
+import math
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import torch.nn.functional as F
+import torch.optim as optim
 import torchvision.transforms as T
-
+from PIL import Image
 
 # Initial Setup
 
-env = gym.make('JourneyEscape-v0')
+env = gym.make('AirRaid-ram-v0')
 if hasattr(env, 'get_keys_to_action'):
     keys_to_action = env.get_keys_to_action()
     print(keys_to_action)
@@ -29,7 +28,6 @@ if hasattr(env.unwrapped, 'get_keys_to_action'):
 is_ipython = 'inline' in matplotlib.get_backend()
 if is_ipython:
     from IPython import display
-
 plt.ion()
 
 # if gpu is to be used
@@ -264,7 +262,6 @@ for i_episode in range(num_episodes):
     state = current_screen - last_screen
     local_rewards = 0
     for t in count():
-        env.render()
         # Select and perform an action
         action = select_action(state)
         _, reward, done, _ = env.step(action.item())

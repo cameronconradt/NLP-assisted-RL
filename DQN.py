@@ -1,18 +1,18 @@
-import gym
-import math
 import random
-import numpy as np
-import matplotlib
-import matplotlib.pyplot as plt
+import time
 from collections import namedtuple
 from itertools import count
-from PIL import Image
 
+import gym
+import math
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import torch.nn.functional as F
+import torch.optim as optim
 import torchvision.transforms as T
+from PIL import Image
 
 env = gym.make('Boxing-v0')
 
@@ -128,7 +128,7 @@ def select_action(state):
     eps_threshold = EPS_END + (EPS_START - EPS_END) * \
         math.exp(-1. * steps_done / EPS_DECAY)
     steps_done += 1
-    if sample > eps_threshold:
+    if len(episode_total_rewards) > 40:
         with torch.no_grad():
             # t.max(1) will return largest column value of each row.
             # second column on max result is index of where max element was
@@ -138,11 +138,11 @@ def select_action(state):
         return torch.tensor([[random.randrange(n_actions)]], device=device, dtype=torch.long)
 
 env.reset()
-plt.figure()
-plt.imshow(get_screen().cpu().squeeze(0).permute(1, 2, 0).numpy(),
-           interpolation='none')
-plt.title('Example extracted screen')
-plt.show()
+# plt.figure()
+# plt.imshow(get_screen().cpu().squeeze(0).permute(1, 2, 0).numpy(),
+#            interpolation='none')
+# plt.title('Example extracted screen')
+# plt.show()
 
 episode_total_rewards = []
 
@@ -209,28 +209,30 @@ def optimize_model():
         param.grad.data.clamp_(-1, 1)
     optimizer.step()
 
-num_episodes = 10000
+
+num_episodes = 400
 for i_episode in range(num_episodes):
     # Initialize the environment and state
     env.reset()
     last_screen = get_screen()
     current_screen = get_screen()
-    state = current_screen
+    state = current_screen - last_screen
     local_rewards = 0
+    start_time = time.time()
     for t in count():
-        env.render()
+        # env.render()
         # Select and perform an action
         action = select_action(state)
         _, reward, done, _ = env.step(action.item())
         local_rewards += reward
-        if reward != 0:
-            print(reward)
+        # if reward != 0:
+        #     print(reward)
         reward = torch.tensor([reward], device=device)
         # Observe new state
         last_screen = current_screen
         current_screen = get_screen()
         if not done:
-            next_state = current_screen
+            next_state = current_screen - last_screen
         else:
             next_state = None
 
@@ -240,11 +242,14 @@ for i_episode in range(num_episodes):
         # Move to the next state
         state = next_state
         # Perform one step of the optimization (on the target network)
-        optimize_model()
+        if len(episode_total_rewards) > 40:
+            optimize_model()
         if done:
             episode_total_rewards.append(local_rewards)
             plot_rewards()
             local_rewards = 0
+            print("--- %s seconds ---" % (time.time() - start_time), " ", len(episode_total_rewards) / num_episodes,
+                  "%")
             break
     # Update the target network, copying all weights and biases in DQN
     if i_episode % TARGET_UPDATE == 0:
