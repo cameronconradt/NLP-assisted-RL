@@ -17,7 +17,7 @@ function max() {
       sleep 1
    done
 }
-
+mkdir manuals
 for i in {0..5000}; do
 	string="https://atariage.com/manual_html_page.php?SoftwareID=$i"
 	max 100
@@ -25,5 +25,5 @@ for i in {0..5000}; do
 done
 wait
 echo "finished pulling, catting"
-cat manuals/*.text >> final.txt
-rm manuals/*.text
+#cat manuals/*.text >> final.txt
+#rm -rf manuals
