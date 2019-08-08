@@ -1,7 +1,7 @@
 #!/bin/bash
 
 function filter() {
-        if !( grep -q "HTML Manual Not Found..." "$1" ) ; then
+        if ! ( grep -q "HTML Manual Not Found..." "$1" ) ; then
 		    echo "filtering $1"
             sed -n '/<body>/,/body>/p' "$1" > "manuals/$1"
             rm "$1"
