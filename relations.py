@@ -6,12 +6,14 @@ from snorkel.parser import CorpusParser
 from snorkel.models import Document, Sentence
 from snorkel.models import candidate_subclass
 from snorkel.candidates import Ngrams, CandidateExtractor
-from snorkel.matchers import MiscMatcher
+from snorkel.matchers import PersonMatcher, MiscMatcher
+import multiprocessing
+
 
 
 # TO USE A DATABASE OTHER THAN SQLITE, USE THIS LINE
 # Note that this is necessary for parallel execution amongst other things...
-# os.environ['SNORKELDB'] = 'postgres:///snorkel-intro'
+os.environ['SNORKELDB'] = 'postgres:///snorkel-intro'
 
 session = SnorkelSession()
 
@@ -23,11 +25,11 @@ corpus_parser.apply(doc_preprocessor)
 print("Documents:", session.query(Document).count())
 print("Sentences:", session.query(Sentence).count())
 
-
+# Spouse = candidate_subclass('Spouse', ['person1', 'person2'])
 Spouse = candidate_subclass('Action', ['subject', 'verb'])
 
-ngrams = Ngrams(n_max=7)
-misc_matcher = MiscMatcher()
+ngrams = Ngrams(n_max=14)
+misc_matcher = MiscMatcher(longest_match_only=True)
 cand_extractor = CandidateExtractor(Spouse, [ngrams, ngrams], [misc_matcher, misc_matcher])
 
 docs = session.query(Document).order_by(Document.name).all()
@@ -47,4 +49,4 @@ for i, doc in enumerate(docs):
 
 for i, sents in enumerate([train_sents, dev_sents, test_sents]):
     cand_extractor.apply(sents, split=i)
-    print("Number of candidates:", session.query(Spouse).filter(Spouse.split == i).count())
+    print("Number of candidates:", session.query(Spouse).filter(Spouse.split == i).all())

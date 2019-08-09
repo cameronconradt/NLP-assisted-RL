@@ -20,8 +20,8 @@ for file in os.listdir('parsed'):
         if chunk.root.dep_ == 'nsubj':
             noun = chunk.root.text.lower()
         elif chunk.root.dep_ == 'dobj':
-            key = noun
-            # key = (noun, chunk.root.text.lower())
+            # key = noun
+            key = (noun, chunk.root.text.lower())
             verb = chunk.root.head.text.lower()
             if key not in map:
                 map.update({key: {verb: 1}})
