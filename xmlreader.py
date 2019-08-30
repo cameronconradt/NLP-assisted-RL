@@ -8,6 +8,7 @@ import pickle
 import os
 import time
 from shutil import move
+import datetime
 
 
 def getelements(filename_or_file, tag, offset):
@@ -37,6 +38,7 @@ def processType(filename, tag, offset, dict):
     for elem in getelements(filename, tag, offset):
         if count % 100 == 0:
             print('saving at count:', count)
+            print(datetime.datetime.now())
             begin = time.clock()
             pickle.dump(dict, open('checkpoint_temp.obj', 'wb'))
             move('checkpoint_temp.obj', 'checkpoint.obj')
