@@ -6,6 +6,8 @@ from spacy.lemmatizer import Lemmatizer
 from spacy.lang.en import LEMMA_INDEX, LEMMA_EXC, LEMMA_RULES
 import pickle
 import os
+import time
+from shutil import move
 
 
 def getelements(filename_or_file, tag, offset):
@@ -13,11 +15,16 @@ def getelements(filename_or_file, tag, offset):
     context = iter(ElementTree.iterparse(filename_or_file, events=('start', 'end')))
     _, root = next(context) # get root element
     i = 0
+    begin = time.clock()
     for event, elem in context:
         if event == 'end' and elem.tag == tag:
+            if i == offset:
+                print('Met offset in ', time.clock() - begin, ' seconds')
             if i >= offset:
                 yield elem
                 root.clear() # free memory
+            else:
+                root.clear()
             i += 1
 
 
@@ -26,9 +33,15 @@ def processType(filename, tag, offset, dict):
     # w = csv.writer(open('output' + str(offset) + '.csv', "w"))
     lemmatizer = Lemmatizer(LEMMA_INDEX, LEMMA_EXC, LEMMA_RULES)
     count = offset
+    end = time.clock()
     for elem in getelements(filename, tag, offset):
         if count % 100 == 0:
-            pickle.dump(dict, open('checkpoint.obj', 'wb'))
+            print('saving at count:', count)
+            begin = time.clock()
+            pickle.dump(dict, open('checkpoint_temp.obj', 'wb'))
+            move('checkpoint_temp.obj', 'checkpoint.obj')
+            end = time.clock()
+            print('saving finished in: ', end - begin, ' seconds')
         if elem.text is not None:
             if len(elem.text) < nlp.max_length and elem.text != '':
                 text = elem.text
@@ -55,19 +68,26 @@ def processType(filename, tag, offset, dict):
 
 basetype = "{http://www.mediawiki.org/xml/export-0.10/}"
 if os.path.exists('checkpoint.obj'):
+    print('loading dict')
+    begin = time.clock()
     dict = pickle.load(open('checkpoint.obj', 'rb'))
+    end = time.clock()
     if 'count' in dict:
+        print('dict loaded in: ', end - begin, ' seconds')
         processType('enwiki.xml', basetype + 'text', dict['count'], dict)
     else:
-        processType('enwiki.xml', basetype + 'text', 0, dict)
+        print('invalid dict loaded, resetting')
+        processType('enwiki.xml', basetype + 'text', 0, {})
 else:
+    print('no dict found')
     dict = {}
     processType('enwiki.xml', basetype + 'text', 0, dict)
 
 dict.pop('count')
-file = open("output.obj", "w")
+file = open("output.obj", "wb")
 pickle.dump(dict, file)
 
 w = csv.writer(open("output.csv", "w"))
 for key, val in dict.items():
-    w.writerow([key, val])
+    if len(val.keys()) > 1:
+        w.writerow([key, val])
