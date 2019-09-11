@@ -14,9 +14,12 @@ import torch.optim as optim
 import torchvision.transforms as T
 from PIL import Image
 
-# Initial Setup
+from pytorch_transformers import *
 
-env = gym.make('AirRaid-ram-v0')
+# Initial Setup
+tokenizer = RobertaTokenizer.from_pretrained('roberta-base')
+model = RobertaModel.from_pretrained('roberta-base')
+env = gym.make('Asteroids-v0')
 if hasattr(env, 'get_keys_to_action'):
     keys_to_action = env.get_keys_to_action()
     print(keys_to_action)
@@ -97,6 +100,9 @@ resize = T.Compose([T.ToPILImage(),
 
 
 def get_screen():
+    # TODO: Add the object recognition and transformers
+    # Instead of the color channel it will be an object channel
+
     # Returned screen requested by gym is 400x600x3, but is sometimes larger
     # such as 800x1200x3. Transpose it into torch order (CHW).
     screen = env.render(mode='rgb_array').transpose((2, 0, 1))
@@ -109,11 +115,11 @@ def get_screen():
 
 
 env.reset()
-plt.figure()
-plt.imshow(get_screen().cpu().squeeze(0).permute(1, 2, 0).numpy(),
-           interpolation='none')
-plt.title('Example extracted screen')
-plt.show()
+# plt.figure()
+# plt.imshow(get_screen().cpu().squeeze(0).permute(1, 2, 0).numpy(),
+#            interpolation='none')
+# plt.title('Example extracted screen')
+# plt.show()
 
 # Hyperparameters and Utilities
 
@@ -128,7 +134,7 @@ TARGET_UPDATE = 10
 # returned from AI gym. Typical dimensions at this point are close to 3x40x90
 # which is the result of a clamped and down-scaled render buffer in get_screen()
 init_screen = get_screen()
-_, _, screen_height, screen_width = init_screen.shape
+_, _, _, screen_height, screen_width = init_screen.shape
 
 # Get number of actions from gym action space
 n_actions = env.action_space.n
@@ -261,6 +267,8 @@ for i_episode in range(num_episodes):
     current_screen = get_screen()
     state = current_screen - last_screen
     local_rewards = 0
+    with torch.no_grad():
+        test_output = model(test_output)[0][0][0]
     for t in count():
         # Select and perform an action
         action = select_action(state)

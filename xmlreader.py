@@ -36,7 +36,7 @@ def processType(filename, tag, offset, dict):
     count = offset
     end = time.clock()
     for elem in getelements(filename, tag, offset):
-        if count % 100 == 0:
+        if count % 10000 == 0:
             print('saving at count:', count)
             print(datetime.datetime.now())
             begin = time.clock()
@@ -85,6 +85,7 @@ else:
     dict = {}
     processType('enwiki.xml', basetype + 'text', 0, dict)
 
+print('total: ', dict['count'])
 dict.pop('count')
 file = open("output.obj", "wb")
 pickle.dump(dict, file)
