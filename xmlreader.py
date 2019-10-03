@@ -16,11 +16,11 @@ def getelements(filename_or_file, tag, offset):
     context = iter(ElementTree.iterparse(filename_or_file, events=('start', 'end')))
     _, root = next(context) # get root element
     i = 0
-    begin = time.clock()
+    begin = time.process_time()
     for event, elem in context:
         if event == 'end' and elem.tag == tag:
             if i == offset:
-                print('Met offset in ', time.clock() - begin, ' seconds')
+                print('Met offset in ', time.process_time() - begin, ' seconds')
             if i >= offset:
                 yield elem
                 root.clear() # free memory
@@ -34,15 +34,15 @@ def processType(filename, tag, offset, dict):
     # w = csv.writer(open('output' + str(offset) + '.csv', "w"))
     lemmatizer = Lemmatizer(LEMMA_INDEX, LEMMA_EXC, LEMMA_RULES)
     count = offset
-    end = time.clock()
+    end = time.process_time()
     for elem in getelements(filename, tag, offset):
         if count % 10000 == 0:
             print('saving at count:', count)
             print(datetime.datetime.now())
-            begin = time.clock()
+            begin = time.process_time()
             pickle.dump(dict, open('checkpoint_temp.obj', 'wb'))
             move('checkpoint_temp.obj', 'checkpoint.obj')
-            end = time.clock()
+            end = time.process_time()
             print('saving finished in: ', end - begin, ' seconds')
         if elem.text is not None:
             if len(elem.text) < nlp.max_length and elem.text != '':
@@ -68,12 +68,13 @@ def processType(filename, tag, offset, dict):
         dict.update({'count': count})
 
 
+spacy.require_gpu()
 basetype = "{http://www.mediawiki.org/xml/export-0.10/}"
 if os.path.exists('checkpoint.obj'):
     print('loading dict')
-    begin = time.clock()
+    begin = time.process_time()
     dict = pickle.load(open('checkpoint.obj', 'rb'))
-    end = time.clock()
+    end = time.process_time()
     if 'count' in dict:
         print('dict loaded in: ', end - begin, ' seconds')
         processType('enwiki.xml', basetype + 'text', dict['count'], dict)

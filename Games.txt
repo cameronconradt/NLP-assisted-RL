@@ -55,3 +55,14 @@ SpaceInvaders-v4
 TimePilot-v4
 VideoPinball-v4
 Zaxxon-v4
+
+
+Mini:
+
+Train:
+Bowling
+Breakout
+Freeway
+Test:
+Asteroids
+Ms.Pacman

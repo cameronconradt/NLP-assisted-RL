@@ -1,3 +1,4 @@
+torchvision
 beautifulsoup4==4.7.1
 future==0.17.1
 ipywidgets==7.4.2
