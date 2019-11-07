@@ -60,9 +60,9 @@ Zaxxon-v4
 Mini:
 
 Train:
-Bowling
-Breakout
-Freeway
+Bowling-v4
+Breakout-v4
+Freeway-v4
 Test:
-Asteroids
-Ms.Pacman
+Asteroids-v4
+Ms.Pacman-v4
