@@ -7,8 +7,9 @@ class DQN(nn.Module):
 
     def __init__(self, nlp, img, outputs):
         super(DQN, self).__init__()
-        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, stride=2)
+        img_linear_input_size = self._get_size(list(img.size())[-1], list(img.size())[-2])
         self.seq_img = nn.Sequential(
+            nn.Conv2d(18, 32, kernel_size=3, stride=2),
             nn.BatchNorm2d(32),
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=3, stride=2),
@@ -17,17 +18,35 @@ class DQN(nn.Module):
             nn.Conv2d(64, 32, kernel_size=3, stride=2),
             nn.BatchNorm2d(32),
             nn.ReLU(),
+            nn.Linear(img_linear_input_size, 100)
         )
-        size = list(nlp.size())[-1]*list(nlp.size())[-2]
-        self.nlpRNN = nn.GRU(input_size=size, hidden_size=1000, num_layers=4, bidirectional=True)
+        size = list(nlp.size())[-1]*list(nlp.size())[-2]*18
+        self.nlpRNN = nn.GRU(input_size=size, hidden_size=500, num_layers=4, bidirectional=True)
+        self.seq_nlp = nn.Sequential(
+            nn.Linear(size, size*2),
+            nn.BatchNorm1d(size*2),
+            nn.ReLU(),
+            nn.Linear(size*2, size*2),
+            nn.BatchNorm1d(size*2),
+            nn.ReLU(),
+            nn.Linear(size*2, size*2),
+            nn.BatchNorm1d(size*2),
+            nn.ReLU(),
+            nn.Linear(size*2, size*2),
+            nn.BatchNorm1d(size*2),
+            nn.ReLU(),
+            nn.Linear(size*2, 100),
+            nn.BatchNorm1d(100),
+            nn.ReLU(),
+        ).cuda()
         self.GAMMA = 0.999
-        self.head_conv = nn.Conv2d(64, 32, kernel_size=1, stride=1)
+        # self.head_conv = nn.Conv2d(64, 32, kernel_size=1, stride=1)
 
 
         # Number of Linear input connections depends on output of conv2d layers
         # and therefore the input image size, so compute it.
 
-        self.update_output(nlp, img, outputs)
+        self.update_output(outputs)
 
     # Called with either one element to determine next action, or a batch
     # during optimization. Returns tensor([[left0exp,right0exp]...]).
@@ -44,22 +63,16 @@ class DQN(nn.Module):
         x_img = x[1]
         sizes = list(x_nlp.size())
         num_filters = list(x_nlp.size())[-3]
-        x_nlp = x_nlp.view((sizes[0], sizes[-1] * sizes[-2])).unsqueeze(0)
-        self.conv1 = nn.Conv2d(num_filters, 32, kernel_size=3, stride=2).cuda()
-        nlp_rnn_output = self.nlpRNN(x_nlp.cuda())[0]
-        img_seq_output = self.seq_img(self.conv1(x_img.cuda()))
-        nlp_output = self.head_nlp(nlp_rnn_output.view(nlp_rnn_output.size(0), -1))
-        img_output = self.head_img(img_seq_output.view(img_seq_output.size(0), -1))
-        catted = torch.cat((nlp_output, img_output), 0)
-        toreturn = self.head(catted.view(-1)).cpu().detach().numpy()
-        return toreturn.argmax()
+        x_nlp = x_nlp.view((sizes[0], num_filters * sizes[-1] * sizes[-2])).unsqueeze(0)
+        nlp_output = self.seq_nlp(x_nlp.cuda())
+        img_output = self.seq_img(x_img.cuda())
+        catted = torch.cat((nlp_output, img_output), -1)
+        toreturn = self.head(catted)
+        return toreturn
 
-    def update_output(self, nlp, img, outputs):
 
-        img_linear_input_size = self._get_size(list(img.size())[-1], list(img.size())[-2])
-        self.head_img = nn.Linear(img_linear_input_size, outputs).cuda()
-        self.head_nlp = nn.Linear(2000 * list(nlp.size())[-3], outputs).cuda()
-        self.head = nn.Linear(outputs * 2, outputs).cuda()
+    def update_output(self,outputs):
+        self.head = nn.Linear(200, outputs).cuda()
 
     def _get_size(self, w, h):
         convw = self.conv2d_size_out(self.conv2d_size_out(self.conv2d_size_out(w)))
