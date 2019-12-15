@@ -35,6 +35,7 @@ parser.add_argument("--games_def_path", type=str, default='data/small_set.txt', 
 parser.add_argument('--num_episodes', type=int, default=1000, help='number of episodes to train on per game')
 parser.add_argument('--evaluation-size', type=int, default=103, metavar='N', help='Number of transitions to use for validating Q')
 parser.add_argument('--batch-size', type=int, default=50, help='size of batch to pull from memory')
+parser.add_argument('--episode-length', type=int, default=100000,  help='max number of steps per episode')
 
 args = parser.parse_args()
 print(args)
@@ -97,16 +98,17 @@ for episode in tqdm(range(args.num_episodes), desc='Episode Loop'):
     state = env.reset()
     if policy_net is None:
         policy_net = DQN(state[0], state[1], env.action_space.n).cuda()
-        target_net = DQN(state[0], state[1], env.action_space.n).cuda()
+        target_net = DQN(state[0], state[1], env.action_space.n)
         optimizer = optim.Adam(policy_net.parameters())
     else:
         policy_net.update_output(env.action_space.n)
         target_net.update_output(env.action_space.n)
 
     done = False
-    for i in count():
+    for step in tqdm(range(args.episode_length), desc='Episode Steps'):
         gc.collect()
         if done:
+            done = False
             break
         chosen = policy_net.forward(state)
         chosen = chosen.cpu()

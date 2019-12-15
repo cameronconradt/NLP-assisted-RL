@@ -21,24 +21,23 @@ class DQN(nn.Module):
             nn.Linear(img_linear_input_size, 100)
         )
         size = list(nlp.size())[-1]*list(nlp.size())[-2]*18
-        self.nlpRNN = nn.GRU(input_size=size, hidden_size=500, num_layers=4, bidirectional=True)
         self.seq_nlp = nn.Sequential(
-            nn.Linear(size, size*2),
-            nn.BatchNorm1d(size*2),
+            nn.Linear(size, size//2),
+            nn.BatchNorm1d(size//2),
             nn.ReLU(),
-            nn.Linear(size*2, size*2),
-            nn.BatchNorm1d(size*2),
+            nn.Linear(size//2, size//4),
+            nn.BatchNorm1d(size//4),
             nn.ReLU(),
-            nn.Linear(size*2, size*2),
-            nn.BatchNorm1d(size*2),
+            nn.Linear(size//4, size//8),
+            nn.BatchNorm1d(size//8),
             nn.ReLU(),
-            nn.Linear(size*2, size*2),
-            nn.BatchNorm1d(size*2),
+            nn.Linear(size//8, size//16),
+            nn.BatchNorm1d(size//16),
             nn.ReLU(),
-            nn.Linear(size*2, 100),
+            nn.Linear(size//16, 100),
             nn.BatchNorm1d(100),
             nn.ReLU(),
-        ).cuda()
+        )
         self.GAMMA = 0.999
         # self.head_conv = nn.Conv2d(64, 32, kernel_size=1, stride=1)
 
@@ -72,7 +71,7 @@ class DQN(nn.Module):
 
 
     def update_output(self,outputs):
-        self.head = nn.Linear(200, outputs).cuda()
+        self.head = nn.Linear(200, outputs)
 
     def _get_size(self, w, h):
         convw = self.conv2d_size_out(self.conv2d_size_out(self.conv2d_size_out(w)))
