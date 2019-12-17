@@ -18,26 +18,21 @@ class DQN(nn.Module):
             nn.Conv2d(64, 32, kernel_size=3, stride=2),
             nn.BatchNorm2d(32),
             nn.ReLU(),
-            nn.Linear(img_linear_input_size, 100)
-        )
+        ).cuda()
+        self.img_head = nn.Linear(img_linear_input_size, 100).cuda()
         size = list(nlp.size())[-1]*list(nlp.size())[-2]*18
         self.seq_nlp = nn.Sequential(
-            nn.Linear(size, size//2),
-            nn.BatchNorm1d(size//2),
+            nn.Linear(size, 2048),
             nn.ReLU(),
-            nn.Linear(size//2, size//4),
-            nn.BatchNorm1d(size//4),
+            nn.Linear(2048, 1024),
             nn.ReLU(),
-            nn.Linear(size//4, size//8),
-            nn.BatchNorm1d(size//8),
+            nn.Linear(1024, 512),
             nn.ReLU(),
-            nn.Linear(size//8, size//16),
-            nn.BatchNorm1d(size//16),
+            nn.Linear(512, 256),
             nn.ReLU(),
-            nn.Linear(size//16, 100),
-            nn.BatchNorm1d(100),
+            nn.Linear(256, 100),
             nn.ReLU(),
-        )
+        ).cuda()
         self.GAMMA = 0.999
         # self.head_conv = nn.Conv2d(64, 32, kernel_size=1, stride=1)
 
@@ -63,15 +58,16 @@ class DQN(nn.Module):
         sizes = list(x_nlp.size())
         num_filters = list(x_nlp.size())[-3]
         x_nlp = x_nlp.view((sizes[0], num_filters * sizes[-1] * sizes[-2])).unsqueeze(0)
-        nlp_output = self.seq_nlp(x_nlp.cuda())
-        img_output = self.seq_img(x_img.cuda())
+        nlp_output = self.seq_nlp(x_nlp)
+        img_sec = self.seq_img(x_img)
+        img_output = self.img_head(img_sec.view((img_sec.size(0), -1))).unsqueeze(0)
         catted = torch.cat((nlp_output, img_output), -1)
         toreturn = self.head(catted)
         return toreturn
 
 
     def update_output(self,outputs):
-        self.head = nn.Linear(200, outputs)
+        self.head = nn.Linear(200, outputs).cuda()
 
     def _get_size(self, w, h):
         convw = self.conv2d_size_out(self.conv2d_size_out(self.conv2d_size_out(w)))

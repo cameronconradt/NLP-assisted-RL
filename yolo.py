@@ -60,7 +60,7 @@ class Yolo:
             # Draw bounding boxes and labels of detections
             if detections is not None:
                 # Rescale boxes to original image
-                img = torch.from_numpy(np.zeros((1, 210, 160)))
+                img = torch.zeros((1, 210, 160), device="cuda")
                 detections = rescale_boxes(detections, self.opt.img_size, img.shape[1:])
                 unique_labels = detections[:, -1].cpu().unique()
                 # unique_labels = list(lambda x: self.classes[int(x)], unique_labels)

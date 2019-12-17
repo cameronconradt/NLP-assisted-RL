@@ -15,6 +15,7 @@ import torch
 import torch.nn.functional as F
 from tqdm import tqdm
 import gc
+import matplotlib.pyplot as plt
 from bz2 import BZ2File
 
 torch.backends.cudnn.enabled = False
@@ -60,18 +61,22 @@ def optimize_model(memory, batch_size, Transition, policy, target, optimizer):
     reward = torch.tensor([x for x in batch.reward], dtype=torch.float).cuda()
     done = torch.tensor([x for x in batch.done], dtype=torch.float).cuda()
     optimizer.zero_grad()
-    values = policy((state_nlp, state_img)).squeeze().gather(1, action.unsqueeze(1))
-    target = reward + GAMMA * (1-done) * torch.max(target((next_state_nlp, next_state_img)).squeeze(), 1)[0]
-    loss = torch.mean((target - values) ** 2)
-    del state_nlp, state_img, action, next_state_img, next_state_nlp, reward, done
+    values = policy_net((state_nlp, state_img)).squeeze().gather(1, action.unsqueeze(1))
+    target_vals = reward + GAMMA * (1-done) * torch.max(target_net((next_state_nlp, next_state_img)).squeeze(), 1)[0]
+    loss = torch.mean((target_vals - values) ** 2)
+    del target, state_nlp, state_img, action, next_state_img, next_state_nlp, reward, done
     torch.cuda.empty_cache()
     loss.backward()
     optimizer.step()
+    if global_steps % 10000 == 0:
+        target_net.load_state_dict(policy_net.state_dict())
 
 
 start = time.time()
 roberta_model = RobertaModel.from_pretrained('roberta-base').cuda()
+print("Roberta loaded")
 nlp_dict = pickle.load(open(args.nlp_map_obj, 'rb'))
+print("nlp dict loaded")
 yolo_model = Yolo(args)
 games_file = open(args.games_def_path, 'rt')
 policy_net = None
@@ -83,6 +88,7 @@ for line in games_file:
     val_mem.add_env(line.strip())
 done = True
 for env in envs:
+    gc.collect()
     for i in tqdm(range(args.evaluation_size), desc='Eval loop'):
         if done:
             state, done = env.reset(), False
@@ -90,15 +96,18 @@ for env in envs:
         next_state, reward, done = env.step(action)
         val_mem.push([state[0].cpu(), state[1].cpu()], torch.Tensor([action]), [next_state[0].cpu(), next_state[1].cpu()], torch.Tensor([reward]), torch.Tensor([done]), env.game_name)
         state = next_state
-        del next_state, reward
+        del next_state, reward, action
         torch.cuda.empty_cache()
 
+global_steps = 0
+tot_rewards = []
 for episode in tqdm(range(args.num_episodes), desc='Episode Loop'):
     env = envs[np.random.randint(0, len(envs))]
     state = env.reset()
+    rewards = []
     if policy_net is None:
         policy_net = DQN(state[0], state[1], env.action_space.n).cuda()
-        target_net = DQN(state[0], state[1], env.action_space.n)
+        target_net = DQN(state[0], state[1], env.action_space.n).cuda()
         optimizer = optim.Adam(policy_net.parameters())
     else:
         policy_net.update_output(env.action_space.n)
@@ -117,6 +126,13 @@ for episode in tqdm(range(args.num_episodes), desc='Episode Loop'):
         optimize_model(val_mem, args.batch_size, val_mem.Transition, policy_net, target_net, optimizer)
         val_mem.push([state[0].cpu(), state[1].cpu()], torch.Tensor([action]), [next_state[0].cpu(), next_state[1].cpu()], torch.Tensor([reward]), torch.Tensor([done]), env.game_name)
         state = next_state
+        global_steps += 1
+        rewards.append(reward)
+    tot_rewards.append(np.mean(rewards))
+    plt.plot(tot_rewards)
+    plt.show()
 
+plt.plot(tot_rewards)
+plt.imsave('rewards.png')
 end = time.time()
 print('create each iter', end - start)
