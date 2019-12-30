@@ -65,6 +65,7 @@ class Yolo:
                 unique_labels = detections[:, -1].cpu().unique()
                 # unique_labels = list(lambda x: self.classes[int(x)], unique_labels)
                 unique_labels = [self.classes[int(x)] for x in unique_labels]
+                unique_labels.sort()
                 combos = []
                 for i in unique_labels:
                     for j in unique_labels:

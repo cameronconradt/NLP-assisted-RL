@@ -4,7 +4,7 @@ from collections import namedtuple
 
 class ReplayMemory(object):
 
-    def __init__(self, capacity=100):
+    def __init__(self, capacity=1000):
         self.capacity = capacity
         self.memory = {}
         self.position = {}
